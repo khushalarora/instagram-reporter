@@ -21,20 +21,40 @@ from libs.attack import report_video_attack
 
 from multiprocessing import Process
 from colorama import Fore, Back, Style
+import time
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+        yield lst[i:i + n]  # Fixed slicing syntax # Fixed slicing syntax
 
 def profile_attack_process(username, proxy_list):
-    if (len(proxy_list) == 0):
-        for _ in range(10):
-            report_profile_attack(username, None)
-        return
+    try:
+        if (len(proxy_list) == 0):
+            for _ in range(10):
+                try:
+                    print_status(f"Attempting to report {username} without proxy...")
+                    success = report_profile_attack(username, None)
+                    if success:
+                        print_success(f"Successfully reported {username}")
+                    time.sleep(5)  # Increased delay to 5 seconds
+                except Exception as e:
+                    print_error(f"Detailed error during report: {type(e).__name__}: {str(e)}")
+                    time.sleep(10)  # Add extra delay after errors
+            return
 
-    for proxy in proxy_list:
-        report_profile_attack(username, proxy)
+        for proxy in proxy_list:
+            try:
+                print_status(f"Attempting to report {username} using proxy {proxy}...")
+                success = report_profile_attack(username, proxy)
+                if success:
+                    print_success(f"Successfully reported {username} using proxy {proxy}")
+                time.sleep(5)  # Increased delay to 5 seconds
+            except Exception as e:
+                print_error(f"Detailed error with proxy {proxy}: {type(e).__name__}: {str(e)}")
+                time.sleep(10)  # Add extra delay after errors
+    except Exception as e:
+        print_error(f"Process error: {type(e).__name__}: {str(e)}")
 
 def video_attack_process(video_url, proxy_list):
     if (len(proxy_list) == 0):
@@ -70,13 +90,15 @@ def video_attack(proxies):
         i = i + 1
 
 def profile_attack(proxies):
+    k = 0
     username = ask_question("Enter the username of the person you want to report")
     print(Style.RESET_ALL)
     if (len(proxies) == 0):
-        for k in range(5):
+        for k in range(2):  # Reduced from 5 to 2 concurrent processes
             p = Process(target=profile_attack_process, args=(username, [],))
             p.start()
             print_status(str(k + 1) + ". Transaction Opened!")
+            time.sleep(2)  # Add delay between process starts
         return
 
     chunk = list(chunks(proxies, 10))
