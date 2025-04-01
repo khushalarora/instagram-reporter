@@ -118,12 +118,14 @@ def profile_attack(proxies):
 def main():
     print_success("Modules loaded!\n")
 
-    ret = ask_question("Would you like to use a proxy? [Y/N]")
+    # ret = ask_question("Would you like to use a proxy? [Y/N]")
+    ret = "Y"
 
     proxies = []
 
     if (ret == "Y" or ret == "y"):
-        ret = ask_question("Would you like to collect your proxies from the internet? [Y/N]")
+        # ret = ask_question("Would you like to collect your proxies from the internet? [Y/N]")
+        ret = "Y"
 
         if (ret == "Y" or ret == "y"):
             print_status("Gathering proxy from the Internet! This may take a while.\n")
@@ -146,9 +148,10 @@ def main():
     
 
     print("")
-    print_status("1 - Report the profile.")
-    print_status("2 - Report a video.")
-    report_choice = ask_question("Please select the complaint method")
+    # print_status("1 - Report the profile.")
+    # print_status("2 - Report a video.")
+    # report_choice = ask_question("Please select the complaint method")
+    report_choice = "1"
     print("")
 
     if (report_choice.isdigit() == False):
