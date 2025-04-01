@@ -30,31 +30,29 @@ def chunks(lst, n):
 
 def profile_attack_process(username, proxy_list):
     try:
-        if (len(proxy_list) == 0):
+        if len(proxy_list) == 0:
             for _ in range(10):
                 try:
                     print_status(f"Attempting to report {username} without proxy...")
                     success = report_profile_attack(username, None)
-                    if success:
-                        print_success(f"Successfully reported {username}")
-                    time.sleep(5)  # Increased delay to 5 seconds
+                    time.sleep(5)  # Delay between attempts
                 except Exception as e:
-                    print_error(f"Detailed error during report: {type(e).__name__}: {str(e)}")
-                    time.sleep(10)  # Add extra delay after errors
+                    print_error(f"Error during report: {type(e).__name__} - {str(e)}")
+                    time.sleep(10)
             return
 
         for proxy in proxy_list:
             try:
                 print_status(f"Attempting to report {username} using proxy {proxy}...")
                 success = report_profile_attack(username, proxy)
-                if success:
-                    print_success(f"Successfully reported {username} using proxy {proxy}")
-                time.sleep(5)  # Increased delay to 5 seconds
+                if not success:
+                    print_error(f"Failed to report using proxy {proxy}")
+                time.sleep(5)  # Delay between proxy attempts
             except Exception as e:
-                print_error(f"Detailed error with proxy {proxy}: {type(e).__name__}: {str(e)}")
-                time.sleep(10)  # Add extra delay after errors
+                print_error(f"Proxy error: {type(e).__name__} - {str(e)}")
+                time.sleep(10)
     except Exception as e:
-        print_error(f"Process error: {type(e).__name__}: {str(e)}")
+        print_error(f"Process error: {type(e).__name__} - {str(e)}")
 
 def video_attack_process(video_url, proxy_list):
     if (len(proxy_list) == 0):
@@ -90,29 +88,32 @@ def video_attack(proxies):
         i = i + 1
 
 def profile_attack(proxies):
-    k = 0
+    # Filter out potentially bad proxies
+    valid_proxies = [p for p in proxies if ':' in p and len(p.split(':')) == 2]
+    if len(valid_proxies) < len(proxies):
+        print_status(f"Filtered out {len(proxies) - len(valid_proxies)} invalid proxies")
+    proxies = valid_proxies
+
     username = ask_question("Enter the username of the person you want to report")
     print(Style.RESET_ALL)
-    if (len(proxies) == 0):
-        for k in range(2):  # Reduced from 5 to 2 concurrent processes
-            p = Process(target=profile_attack_process, args=(username, [],))
+    
+    if len(proxies) == 0:
+        for k in range(2):
+            p = Process(target=profile_attack_process, args=(username, []))
             p.start()
-            print_status(str(k + 1) + ". Transaction Opened!")
-            time.sleep(2)  # Add delay between process starts
+            print_status(f"{k + 1}. Transaction Opened!")
+            time.sleep(2)
         return
 
     chunk = list(chunks(proxies, 10))
-
     print("")
     print_status("Profile complaint attack is starting!\n")
 
-    i = 1
-    for proxy_list in chunk:
-        p = Process(target=profile_attack_process, args=(username, proxy_list,))
+    for i, proxy_list in enumerate(chunk, 1):
+        p = Process(target=profile_attack_process, args=(username, proxy_list))
         p.start()
-        print_status(str(i) + ". Transaction Opened!")
-        if (k == 5): print()
-        i = i + 1
+        print_status(f"{i}. Transaction Opened!")
+        time.sleep(1)  # Add small delay between process starts
 
 def main():
     print_success("Modules loaded!\n")

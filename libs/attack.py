@@ -44,148 +44,71 @@ report_headers = {
 }
 
 def random_str(length):
-    letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
+    letters = string.ascii_lowercase + string.digits
     return ''.join(random.choice(letters) for i in range(length))
 
 def report_profile_attack(username, proxy):
-    max_retries = 3
-    retry_delay = 10  # seconds
-    
-    for attempt in range(max_retries):
-        try:
-            ses = Session()
-
-            if proxy:
-                ses.proxies = {
-                    "https": f"https://{proxy}",
-                    "http": f"http://{proxy}"
-                }
-            
-            user_agent = get_user_agent()
-
-            page_headers["User-Agent"] = user_agent
-            report_headers["User-Agent"] = user_agent
-
-            res = ses.get("https://www.facebook.com/", timeout=10, verify=False)
-            if (res.status_code != 200):
-                print_error(f"Facebook connection failed with status code: {res.status_code}")
-                return False
-
-            if ('["_js_datr","' not in res.text):
-                print_error("Could not find _js_datr token")
-                return False
-            
-            js_datr = res.text.split('["_js_datr","')[1].split('",')[0]
-
-            page_cookies = {
-                "_js_datr": js_datr
+    try:
+        ses = Session()
+        if proxy:
+            ses.proxies = {
+                "https": f"https://{proxy}",
+                "http": f"http://{proxy}"
             }
-
-            res = ses.get("https://help.instagram.com/contact/497253480400030", 
-                         cookies=page_cookies, 
-                         headers=page_headers, 
-                         timeout=10)
             
-            if res.status_code == 429:
-                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                print_status(f"Rate limited. Waiting {wait_time} seconds before retry...")
-                time.sleep(wait_time)
-                continue
-                
-            if (res.status_code != 200):
-                print_error(f"Instagram connection failed with status code: {res.status_code}")
-                return False
+        user_agent = get_user_agent()
+        page_headers["User-Agent"] = user_agent
+        report_headers["User-Agent"] = user_agent
 
-            if ("datr" not in res.cookies.get_dict()):
-                print_error("Could not find datr cookie")
-                return False
+        # Try direct Instagram report without Facebook cookies
+        report_url = "https://help.instagram.com/contact/497253480400030"
+        
+        # Add required cookies
+        cookies = {
+            'ig_did': random_str(32),
+            'csrftoken': random_str(32),
+            'mid': random_str(32),
+            'ig_nrcb': '1'
+        }
 
-            if ('["LSD",[],{"token":"' not in res.text):
-                print_error("Could not find LSD token")
-                return False
+        res = ses.get(
+            report_url,
+            cookies=cookies,
+            headers=report_headers,
+            timeout=15,
+            verify=False
+        )
 
-            if ('"__spin_r":' not in res.text):
-                print_error("Could not find __spin_r token")
-                return False
-
-            if ('"__spin_b":' not in res.text):
-                print_error("Could not find __spin_b token")
-                return False
-
-            if ('"__spin_t":' not in res.text):
-                print_error("Could not find __spin_t token")
-                return False
-
-            if ('"server_revision":' not in res.text):
-                print_error("Could not find server_revision token")
-                return False
-
-            if ('"hsi":' not in res.text):
-                print_error("Could not find hsi token")
-                return False
-
-            lsd = res.text.split('["LSD",[],{"token":"')[1].split('"},')[0]
-            spin_r = res.text.split('"__spin_r":')[1].split(',')[0]
-            spin_b = res.text.split('"__spin_b":')[1].split(',')[0].replace('"',"")
-            spin_t = res.text.split('"__spin_t":')[1].split(',')[0]
-            hsi = res.text.split('"hsi":')[1].split(',')[0].replace('"',"")
-            rev = res.text.split('"server_revision":')[1].split(',')[0].replace('"',"")
-            datr = res.cookies.get_dict()["datr"]
-
-            report_cookies = {
-                "datr": datr
+        if res.status_code == 200:
+            # Submit report form
+            data = {
+                'username': username,
+                'report_type': 'profile',
+                'source_name': 'profile'
             }
-
-            report_form = {
-                "jazoest": "2723",
-                "lsd": lsd,
-                "instagram_username": username,
-                "Field241164302734019_iso2_country_code": "IN",
-                "Field241164302734019": "India",
-                "support_form_id": "497253480400030",
-                "support_form_hidden_fields": "{}",
-                "support_form_fact_false_fields": "[]",
-                "__user": "0",
-                "__a": "1",
-                "__dyn": "7xe6Fo4SQ1PyUhxOnFwn84a2i5U4e1Fx-ey8kxx0LxW0DUeUhw5cx60Vo1upE4W0OE2WxO0SobEa81Vrzo5-0jx0Fwww6DwtU6e",
-                "__csr": "",
-                "__req": "d",
-                "__beoa": "0",
-                "__pc": "PHASED:DEFAULT",
-                "dpr": "1",
-                "__rev": rev,
-                "__s": "5gbxno:2obi73:56i3vc",
-                "__hsi": hsi,
-                "__comet_req": "0",
-                "__spin_r": spin_r,
-                "__spin_b": spin_b,
-                "__spin_t": spin_t
-            }
-
+            
             res = ses.post(
-                "https://help.instagram.com/ajax/help/contact/submit/page",
-                data=report_form,
+                report_url,
+                data=data,
+                cookies=cookies,
                 headers=report_headers,
-                cookies=report_cookies,
-                timeout=10
+                timeout=15,
+                verify=False
             )
-            if (res.status_code == 200):
-                print_success("Report submitted successfully!")
+            
+            if res.status_code in [200, 201]:
+                print_success(f"Successfully reported {username}")
                 return True
             else:
-                print_error(f"Report submission failed with status code: {res.status_code}")
+                print_error(f"Report submission failed with status {res.status_code}")
                 return False
 
-        except Exception as e:
-            print_error(f"Connection error: {str(e)}")
-            if attempt < max_retries - 1:
-                wait_time = retry_delay * (2 ** attempt)
-                print_status(f"Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            else:
-                return False
-                
-    return False  # If we get here, all retries failed
+        print_error(f"Failed to access report form, status: {res.status_code}")
+        return False
+
+    except Exception as e:
+        print_error(f"Connection error: {type(e).__name__} - {str(e)}")
+        return False
 
 def report_video_attack(video_url, proxy):
     ses = Session()
